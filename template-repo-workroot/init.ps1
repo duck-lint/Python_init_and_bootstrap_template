@@ -388,7 +388,10 @@ $env:REPO = $RepoPath
 Ensure-RepoRequirementsInstalled -RepoPath $env:REPO -Workroot $Workroot
 Ensure-EditableRepoInstall -RepoPath $env:REPO -Workroot $Workroot
 
-$site = Invoke-WorkrootNative -Exe "python" -Args @("-c","import site; print(site.getsitepackages()[0])") -CaptureText
+$site = Invoke-WorkrootNative -Exe "python" -Args @("-c","import sysconfig; print(sysconfig.get_paths()['purelib'])") -CaptureText
+if ([string]::IsNullOrWhiteSpace($site)) {
+    throw "Could not resolve Python site-packages path."
+}
 $pthPath = Join-Path $site $PthName
 
 if ($DryRun) {
@@ -402,14 +405,38 @@ Set-Content -Path $pthPath -Value $RepoPath -Encoding UTF8
 Write-Host "Wrote .pth:" $pthPath
 Write-Host "Repo path :" $RepoPath
 
-# Verify: you need SOME importable module in the repo (e.g., repo_marker.py)
-try {
-    Invoke-WorkrootNative -Exe "python" -Args @("-c","import repo_marker; print('repo_marker:', repo_marker.__file__)")
-    Write-Host "Import test: OK"
-} catch {
-    Write-Warning "Import test failed. Ensure 'repo_marker.py' exists in the repo root (or adjust the test import)."
-    throw
+# Verify editable install without hardcoding package/module names.
+$pyprojectPath = Join-Path $RepoPath "pyproject.toml"
+$distName = ""
+if (Test-Path -LiteralPath $pyprojectPath) {
+    $distName = Invoke-WorkrootNative -Exe "python" -Args @(
+        "-c",
+        "import pathlib,sys,tomllib; p=pathlib.Path(sys.argv[1]); data=tomllib.loads(p.read_text(encoding='utf-8')); print((data.get('project') or {}).get('name',''))",
+        $pyprojectPath
+    ) -CaptureText
 }
+
+if (-not [string]::IsNullOrWhiteSpace($distName)) {
+    Invoke-WorkrootNative -Exe "python" -Args @(
+        "-c",
+        "import importlib.metadata,sys; name=sys.argv[1]; version=importlib.metadata.version(name); print(f'dist_probe: {name}=={version}')",
+        $distName
+    )
+    if ($LASTEXITCODE -ne 0) {
+        throw ("Import test failed. Installed distribution '{0}' was not importable via metadata." -f $distName)
+    }
+} else {
+    # Fallback for non-packaged repos: confirm the repo path itself is active in sys.path.
+    Invoke-WorkrootNative -Exe "python" -Args @(
+        "-c",
+        "import pathlib,sys; repo=pathlib.Path(sys.argv[1]).resolve(); paths=[pathlib.Path(p).resolve() for p in sys.path if p]; ok=repo in paths; print('path_probe:', 'ok' if ok else 'missing'); sys.exit(0 if ok else 1)",
+        $RepoPath
+    )
+    if ($LASTEXITCODE -ne 0) {
+        throw "Import test failed. Repo path was not active in Python sys.path."
+    }
+}
+Write-Host "Import test: OK"
 
 $toolsPath = Join-Path $Workroot "workroot_tools.ps1"
 if (Test-Path -LiteralPath $toolsPath) { . $toolsPath }
