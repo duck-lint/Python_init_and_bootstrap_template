@@ -1,0 +1,466 @@
+{
+  "repository_summary": {
+    "name": "Python_init_and_bootstrap_template",
+    "owner": "duck-lint",
+    "purpose": "A reusable project template that enforces clean separation between source repository contents and disposable workroot runtime artifacts. Provides PowerShell-based initialization, per-session bootstrapping, Python virtual environment management, structured JSON run manifests, and session transcript logging for Windows-based Python development workflows.",
+    "primary_languages": ["PowerShell", "Windows Batch", "Python"],
+    "notable_patterns": [
+      "Repo/workroot separation for disposable runtime state",
+      "Stamp-based idempotent initialization",
+      "Structured JSON run manifests with optional snapshots and output capture",
+      "Multi-source Python version resolution with PEP 440 parsing",
+      "Zero-system-modification entry point via ExecutionPolicy Bypass"
+    ],
+    "lines_of_code_approx": {
+      "powershell": 1241,
+      "batch": 27,
+      "python": 5,
+      "markdown": 327,
+      "gitignore": 17
+    }
+  },
+  "atomic_skills": [
+    {
+      "id": "SK-001",
+      "skill": "Designing repo/workroot separation architecture for disposable runtime state",
+      "evidence": [
+        "template-repo/ and template-repo-workroot/ folder structure enforces clean separation between version-controlled source and disposable runtime artifacts",
+        "README.md documents the three-layer mental model (Repo, Workroot, Boot/Init scripts)",
+        ".gitignore excludes .venv/, _workroot_manifests/, _workroot_transcripts/ from version control"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "This is a foundational design decision that pervades the entire template. The pattern of separating immutable source from mutable runtime state is broadly applicable to any project with build artifacts, caches, or session state."
+    },
+    {
+      "id": "SK-002",
+      "skill": "Writing idempotent initialization scripts with stamp-based caching",
+      "evidence": [
+        "init.ps1 uses JSON stamp files to track whether requirements have been installed and skips reinstallation when stamps are current",
+        "bootstrap.ps1 uses stamp-based checks for editable repo installation state",
+        "Stamp comparison logic checks file hashes or timestamps to avoid redundant pip install operations"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "Idempotent setup is a transferable DevOps and tooling skill. The stamp file pattern avoids expensive re-execution while remaining transparent and debuggable."
+    },
+    {
+      "id": "SK-003",
+      "skill": "Implementing structured JSON run manifests for command execution traceability",
+      "evidence": [
+        "workroot_tools.ps1 generates JSON manifests containing run_id, timestamps, duration, exit_code, command details, python info, git state, host info, optional output capture, and optional file snapshots",
+        "Manifests are written to _workroot_manifests/ directory with timestamped filenames",
+        "README.md documents the full manifest schema and all optional fields"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "The manifest design demonstrates structured logging, provenance tracking, and reproducibility concerns. The schema is well-defined with clear field semantics."
+    },
+    {
+      "id": "SK-004",
+      "skill": "Building PowerShell CLI tools with parameter-driven behavior and aliases",
+      "evidence": [
+        "workroot_tools.ps1 defines Invoke-WorkrootCommand with 12+ switch/parameter flags (-DryRun, -Snapshot, -CaptureOutput, -NoCapture, -RawNativeStderr, -TranscriptCapture, -MaxOutputBytes, -OutputEncoding, etc.)",
+        "Set-Alias wr Invoke-WorkrootCommand provides ergonomic shorthand",
+        "init.ps1 and bootstrap.ps1 each define parameterized entry points with -RepoPath, -NoBytecode, -NoTranscript, -DryRun, etc."
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "Demonstrates fluency in PowerShell parameter design, switch parameters, and alias patterns for CLI ergonomics."
+    },
+    {
+      "id": "SK-005",
+      "skill": "Managing Python virtual environments programmatically from PowerShell",
+      "evidence": [
+        "init.ps1 creates .venv using resolved Python executable with version support",
+        "bootstrap.ps1 activates .venv/Scripts/Activate.ps1 within the session",
+        "init.ps1 installs requirements via pip inside the venv and upgrades pip itself",
+        "Both scripts verify venv existence and state before operating"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "Covers the full venv lifecycle: creation, activation, dependency installation, and verification. The cross-language orchestration (PowerShell managing Python) is a practical integration skill."
+    },
+    {
+      "id": "SK-006",
+      "skill": "Resolving Python versions from multiple sources with PEP 440 specifier parsing",
+      "evidence": [
+        "init.ps1 implements Get-RepoPythonVersion which checks .python-version file and pyproject.toml requires-python field",
+        "init.ps1 implements Get-PreferredPythonFromSpecifier which parses PEP 440 version specifiers (>=, ==, ~=) to find a matching installed Python",
+        "init.ps1 implements Get-NormalizedPythonVersion to extract X.Y format version numbers"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "PEP 440 parsing in PowerShell is non-trivial. The multi-source resolution chain (.python-version → pyproject.toml → system default) demonstrates defensive version management."
+    },
+    {
+      "id": "SK-007",
+      "skill": "Designing safe Windows entry points with ExecutionPolicy Bypass",
+      "evidence": [
+        "boot.cmd launches PowerShell with -NoProfile -ExecutionPolicy Bypass flags",
+        "boot.cmd conditionally uses -NoExit for init.ps1 and bootstrap.ps1 (interactive sessions) vs -File for other scripts",
+        "README.md explicitly documents that no system-wide policy changes are made"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "Demonstrates understanding of Windows security policy constraints and the pattern of bypassing them safely at the process level rather than modifying system state."
+    },
+    {
+      "id": "SK-008",
+      "skill": "Implementing file snapshot diffing for before/after change detection",
+      "evidence": [
+        "workroot_tools.ps1 Get-WorkrootSnapshot captures file paths and last-write timestamps, excluding .venv/, .git/, and manifest directories",
+        "Snapshot comparison logic computes new_files, modified_files, and deleted_files between before and after snapshots",
+        "Snapshot data is embedded in the JSON manifest under the snapshot key"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "File-level change detection is a reusable pattern for build systems, deployment verification, and audit logging."
+    },
+    {
+      "id": "SK-009",
+      "skill": "Capturing and encoding stdout/stderr from native processes",
+      "evidence": [
+        "workroot_tools.ps1 redirects stdout and stderr to temporary files during command execution",
+        "Read-OutputFile handles size-limited reading with configurable -MaxOutputBytes (default 65536)",
+        "Get-OutputEncoding supports multiple encoding types (unicode, utf8, etc.)",
+        "-RawNativeStderr flag uses Start-Process to capture stderr without PowerShell wrapping",
+        "_tmp_wr_test.py exercises both stdout and stderr output paths"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "Handling native process output in PowerShell is notoriously tricky due to stderr-to-ErrorRecord conversion. The multiple capture strategies show awareness of these edge cases."
+    },
+    {
+      "id": "SK-010",
+      "skill": "Implementing DryRun preview patterns for destructive operations",
+      "evidence": [
+        "init.ps1 accepts -DryRun parameter and prints what would happen without executing",
+        "bootstrap.ps1 accepts -DryRun parameter with similar preview behavior",
+        "workroot_tools.ps1 Invoke-WorkrootCommand accepts -DryRun to preview command execution without running"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "Consistent DryRun support across all entry points demonstrates a safety-first design philosophy applicable to any CLI or automation tool."
+    },
+    {
+      "id": "SK-011",
+      "skill": "Writing .pth files for Python import path manipulation",
+      "evidence": [
+        "init.ps1 creates a .pth file in the venv's site-packages directory to make the repo folder importable",
+        "Verification step imports repo_marker.py to confirm .pth file is effective",
+        "Configurable -PthName parameter allows custom .pth filenames"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "Direct .pth manipulation is a specific Python packaging skill used when editable installs are not appropriate or available."
+    },
+    {
+      "id": "SK-012",
+      "skill": "Extracting and embedding git state (branch, commit, dirty flag) in structured output",
+      "evidence": [
+        "workroot_tools.ps1 Get-GitInfo extracts current branch (git rev-parse --abbrev-ref HEAD), commit hash (git rev-parse HEAD), and dirty state (git status --porcelain)",
+        "Git state is embedded in every run manifest JSON under the git key"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "Automatic git provenance capture is a broadly useful pattern for reproducibility, audit trails, and CI/CD integration."
+    },
+    {
+      "id": "SK-013",
+      "skill": "Managing session transcripts for audit logging in PowerShell",
+      "evidence": [
+        "bootstrap.ps1 and init.ps1 both call Start-WorkrootTranscript to begin session logging",
+        "Transcripts are written to _workroot_transcripts/ with timestamped filenames",
+        "Configurable via -NoTranscript and -TranscriptDir parameters",
+        "-TranscriptCapture flag in workroot_tools.ps1 routes output through the PowerShell host for transcript inclusion"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "Session transcripts provide a complete audit trail of developer activity. The opt-in/opt-out design shows attention to practical usability."
+    },
+    {
+      "id": "SK-014",
+      "skill": "Writing Windows batch scripts for controlled PowerShell invocation",
+      "evidence": [
+        "boot.cmd parses arguments to determine which script to invoke",
+        "Conditional logic handles three paths: bootstrap.ps1 (interactive), init.ps1 (init then bootstrap), and arbitrary scripts",
+        "Uses setlocal/endlocal for environment isolation"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "Batch-to-PowerShell bridging is a Windows-specific but commonly needed skill for bootstrapping environments where PowerShell execution policies may be restricted."
+    },
+    {
+      "id": "SK-015",
+      "skill": "Designing multi-stage script orchestration chains",
+      "evidence": [
+        "boot.cmd → init.ps1 → bootstrap.ps1 → workroot_tools.ps1 forms a deliberate execution chain",
+        "init.ps1 automatically drops into bootstrap.ps1 after initialization",
+        "bootstrap.ps1 dot-sources workroot_tools.ps1 to make wr available in the session"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "The layered chain (entry point → one-time init → per-session activation → session tools) is a clean separation of lifecycle stages applicable to any bootstrapping system."
+    },
+    {
+      "id": "SK-016",
+      "skill": "Implementing editable Python package installation with verification",
+      "evidence": [
+        "init.ps1 Ensure-EditableRepoInstall checks for pyproject.toml and runs pip install -e",
+        "Verification checks for .dist-info metadata to confirm editable install succeeded",
+        "bootstrap.ps1 includes parallel logic for editable install with -SkipRepoInstall and -ForceRepoInstall flags"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "Managing editable installs programmatically (including verification via dist-info) goes beyond simple pip usage and demonstrates Python packaging awareness."
+    },
+    {
+      "id": "SK-017",
+      "skill": "Constructing safely quoted command-line strings for process execution",
+      "evidence": [
+        "workroot_tools.ps1 Quote-CommandArg adds quotes around arguments containing spaces or special characters",
+        "Format-CommandLine builds the full command line string from command and arguments array",
+        "The quoted command line is stored in the manifest for exact reproducibility"
+      ],
+      "evidence_strength": "moderate",
+      "transferable": true,
+      "notes": "Correct command-line quoting is a subtle skill that prevents injection and ensures reproducibility. The implementation handles the common cases."
+    },
+    {
+      "id": "SK-018",
+      "skill": "Computing relative paths between filesystem locations",
+      "evidence": [
+        "workroot_tools.ps1 Get-RelativePath computes the relative path from one directory to another",
+        "Used to express file paths relative to the workroot in snapshot output"
+      ],
+      "evidence_strength": "moderate",
+      "transferable": true,
+      "notes": "Relative path computation is a small but reusable utility skill for portable path handling."
+    },
+    {
+      "id": "SK-019",
+      "skill": "Designing .gitignore rules for clean workroot separation",
+      "evidence": [
+        ".gitignore excludes .venv/, _workroot_manifests/, _workroot_transcripts/, __pycache__/, *.pyc, *.egg-info/, build/, dist/, .DS_Store, Thumbs.db",
+        "Categories are documented with comments (venv/manifests, python junk, OS junk)"
+      ],
+      "evidence_strength": "moderate",
+      "transferable": true,
+      "notes": "The .gitignore is intentionally designed to enforce the workroot disposability contract, not just a default template."
+    },
+    {
+      "id": "SK-020",
+      "skill": "Writing structured technical documentation with layered mental models",
+      "evidence": [
+        "README.md (327 lines) covers quick start, folder layout, mental model, per-script responsibilities, Python integration, transcript management, run manifests with full schema, advanced features, and troubleshooting",
+        "Explicit three-layer mental model (Repo Layer, Workroot Layer, Boot/Init Layer) is documented",
+        "Troubleshooting section addresses specific failure modes with solutions"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "The README demonstrates ability to write documentation that serves both quick-start users and those needing deep understanding. The mental model section is particularly well-structured."
+    },
+    {
+      "id": "SK-021",
+      "skill": "Embedding host environment metadata in structured output",
+      "evidence": [
+        "workroot_tools.ps1 captures PowerShell version, edition (Desktop/Core), OS description, machine name, and optionally username",
+        "Host info is embedded in every run manifest JSON under the host key",
+        "Python executable path and version are captured via Get-PythonInfo"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "Environment metadata capture supports reproducibility and debugging. The privacy-aware opt-in for username (-IncludeUser) shows thoughtful design."
+    },
+    {
+      "id": "SK-022",
+      "skill": "Implementing error handling for native command execution in PowerShell",
+      "evidence": [
+        "init.ps1 defines Invoke-WorkrootNative for executing native commands with structured error handling",
+        "Exit code checking and error propagation are implemented",
+        "workroot_tools.ps1 captures exit codes and success/failure status in manifests"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "PowerShell's native command error handling is notoriously inconsistent. Wrapping it in a structured function demonstrates awareness of these pitfalls."
+    },
+    {
+      "id": "SK-023",
+      "skill": "Designing reusable project templates with explicit extension points",
+      "evidence": [
+        "The entire repository is a project template designed to be copied and customized",
+        "README.md documents the copy-init-bootstrap workflow for new projects",
+        "Configurable parameters (-RepoPath, -PthName, -TranscriptDir, etc.) provide extension points without requiring template modification",
+        "DONT FORGET THE REPO MARKER.txt serves as a human reminder for template setup"
+      ],
+      "evidence_strength": "strong",
+      "transferable": true,
+      "notes": "Template design that balances opinionated defaults with configurable overrides is a project scaffolding skill applicable to any framework or toolchain."
+    },
+    {
+      "id": "SK-024",
+      "skill": "Preventing Python bytecode pollution via environment variable control",
+      "evidence": [
+        "bootstrap.ps1 sets PYTHONDONTWRITEBYTECODE=1 to prevent __pycache__ directories in the repo",
+        "This is documented as a deliberate choice to keep the repo clean",
+        "The environment variable is included in manifest env capture"
+      ],
+      "evidence_strength": "moderate",
+      "transferable": true,
+      "notes": "A small but specific Python environment hygiene skill that shows attention to keeping source trees clean."
+    },
+    {
+      "id": "SK-025",
+      "skill": "Using repo marker files for import path verification",
+      "evidence": [
+        "template-repo/repo_marker.py contains value = 'ok' as a verifiable import target",
+        "init.ps1 imports repo_marker after .pth file creation to verify the import path is correctly configured",
+        "DONT FORGET THE REPO MARKER.txt serves as a template setup reminder"
+      ],
+      "evidence_strength": "moderate",
+      "transferable": true,
+      "notes": "Using a canary import to verify path configuration is a simple but effective verification pattern."
+    }
+  ],
+  "skill_clusters": [
+    {
+      "cluster": "Bootstrap and Environment Orchestration",
+      "skill_ids": ["SK-002", "SK-005", "SK-006", "SK-007", "SK-014", "SK-015", "SK-016"],
+      "summary": "End-to-end environment setup from batch entry point through PowerShell init/bootstrap to Python venv creation, dependency installation, and session activation."
+    },
+    {
+      "cluster": "Structured Provenance and Traceability",
+      "skill_ids": ["SK-003", "SK-008", "SK-009", "SK-012", "SK-013", "SK-021"],
+      "summary": "Command execution manifests with git state, host metadata, output capture, file snapshots, and session transcripts provide comprehensive provenance for every action."
+    },
+    {
+      "cluster": "CLI and Tooling Design",
+      "skill_ids": ["SK-004", "SK-010", "SK-017", "SK-018", "SK-022"],
+      "summary": "PowerShell CLI tools with rich parameter sets, dry-run previews, safe argument quoting, and structured error handling."
+    },
+    {
+      "cluster": "Project Architecture and Template Design",
+      "skill_ids": ["SK-001", "SK-019", "SK-020", "SK-023", "SK-024", "SK-025"],
+      "summary": "Repo/workroot separation, .gitignore hygiene, documentation, template reusability, and verification patterns."
+    },
+    {
+      "cluster": "Python Packaging and Environment Skills",
+      "skill_ids": ["SK-005", "SK-006", "SK-011", "SK-016", "SK-024", "SK-025"],
+      "summary": "Virtual environment lifecycle, PEP 440 version resolution, .pth path manipulation, editable installs, and bytecode control."
+    }
+  ],
+  "evidence_basis": {
+    "primary_sources": [
+      {
+        "file": "template-repo-workroot/workroot_tools.ps1",
+        "lines_approx": 462,
+        "contributes_to": ["SK-003", "SK-004", "SK-008", "SK-009", "SK-010", "SK-012", "SK-017", "SK-018", "SK-021", "SK-022"]
+      },
+      {
+        "file": "template-repo-workroot/init.ps1",
+        "lines_approx": 446,
+        "contributes_to": ["SK-002", "SK-004", "SK-005", "SK-006", "SK-010", "SK-011", "SK-013", "SK-015", "SK-016", "SK-022", "SK-025"]
+      },
+      {
+        "file": "template-repo-workroot/bootstrap.ps1",
+        "lines_approx": 333,
+        "contributes_to": ["SK-002", "SK-004", "SK-005", "SK-010", "SK-013", "SK-015", "SK-016", "SK-024"]
+      },
+      {
+        "file": "template-repo-workroot/boot.cmd",
+        "lines_approx": 27,
+        "contributes_to": ["SK-007", "SK-014", "SK-015"]
+      },
+      {
+        "file": "README.md",
+        "lines_approx": 327,
+        "contributes_to": ["SK-001", "SK-007", "SK-020", "SK-023"]
+      },
+      {
+        "file": "template-repo-workroot/.gitignore",
+        "lines_approx": 17,
+        "contributes_to": ["SK-001", "SK-019"]
+      },
+      {
+        "file": "template-repo/repo_marker.py",
+        "lines_approx": 2,
+        "contributes_to": ["SK-025"]
+      },
+      {
+        "file": "template-repo-workroot/_tmp_wr_test.py",
+        "lines_approx": 3,
+        "contributes_to": ["SK-009"]
+      }
+    ],
+    "methodology": "Every file in the repository was read in full. Skills were extracted only from implemented behavior observable in scripts, configuration, documentation, and project structure. No skills were inferred from dependency presence alone or from aspirational statements."
+  },
+  "ambiguities_or_borderline_calls": [
+    {
+      "topic": "Cross-platform applicability",
+      "detail": "The entire template is Windows/PowerShell-specific. While the architectural patterns (repo/workroot separation, stamp-based idempotency, structured manifests) are transferable concepts, the implementation is not cross-platform. Skills are worded to distinguish the transferable pattern from the platform-specific implementation.",
+      "resolution": "Skills are flagged as transferable where the pattern generalizes, but the platform scope is noted."
+    },
+    {
+      "topic": "Testing evidence",
+      "detail": "_tmp_wr_test.py is a minimal test helper (3 lines) rather than a proper test suite. There is no test framework, no assertion logic, and no CI pipeline. This limits claims about testing skills.",
+      "resolution": "No testing skills are claimed. _tmp_wr_test.py is cited only as evidence of output capture exercising (SK-009)."
+    },
+    {
+      "topic": "PEP 440 parsing completeness",
+      "detail": "The PEP 440 parsing in init.ps1 handles common specifiers (>=, ==, ~=) but may not cover the full PEP 440 specification (arbitrary equality, pre-release segments, etc.). The skill is stated as 'parsing' rather than 'full implementation'.",
+      "resolution": "Skill SK-006 is worded to reflect what is implemented rather than implying full PEP 440 compliance."
+    },
+    {
+      "topic": "Security considerations",
+      "detail": "ExecutionPolicy Bypass is documented as 'safe' and 'no system changes', which is accurate (process-level only). However, no broader security analysis (input sanitization, path traversal guards, etc.) is present in the scripts.",
+      "resolution": "SK-007 is scoped to the ExecutionPolicy pattern specifically, not to general security hardening."
+    },
+    {
+      "topic": "JSON manifest as schema design",
+      "detail": "The manifest structure is well-defined in documentation and implementation, but there is no formal schema file (JSON Schema, etc.). The skill is stated as 'structured JSON output design' rather than 'schema definition'.",
+      "resolution": "SK-003 references the manifest as structured output with implicit schema, not a formal schema artifact."
+    }
+  ],
+  "overclaim_risks": [
+    {
+      "risk": "Overstating Python packaging expertise from .pth and editable install automation",
+      "mitigation": "Skills SK-011 and SK-016 are scoped to the specific operations implemented (writing .pth files, running pip install -e with verification), not to general Python packaging expertise."
+    },
+    {
+      "risk": "Implying cross-platform capability from Windows-only implementation",
+      "mitigation": "All skills note the Windows/PowerShell platform context. Transferability is flagged at the pattern level, not the implementation level."
+    },
+    {
+      "risk": "Treating comprehensive README as evidence of general technical writing skill",
+      "mitigation": "SK-020 is scoped to 'structured technical documentation with layered mental models' as demonstrated in this specific README, not general technical writing."
+    }
+  ],
+  "transferable_signal_notes": [
+    {
+      "signal": "Systems thinking and lifecycle design",
+      "detail": "The multi-stage orchestration chain (boot → init → bootstrap → session tools) and the stamp-based idempotency pattern demonstrate thinking in terms of system lifecycles rather than individual scripts. This translates to infrastructure-as-code, CI/CD pipeline design, and deployment automation."
+    },
+    {
+      "signal": "Provenance and reproducibility emphasis",
+      "detail": "Embedding git state, host info, timestamps, and exit codes in structured manifests shows a reproducibility-first mindset. This is directly applicable to data pipeline observability, experiment tracking, and audit-compliant systems."
+    },
+    {
+      "signal": "Defensive and verifiable automation",
+      "detail": "DryRun support, stamp-based caching, import verification via marker files, and explicit error handling demonstrate a defensive approach to automation. This transfers to any domain where reliability matters: deployment, data processing, infrastructure management."
+    },
+    {
+      "signal": "Schema-aware structured output",
+      "detail": "The JSON manifest design with consistent field semantics, optional sections, and documented structure demonstrates schema-aware thinking applicable to API design, event systems, and data contracts."
+    }
+  ],
+  "dedupe_notes_for_cross_repo_merge": [
+    "SK-001 (repo/workroot separation) may overlap with project structure skills from other repos but is specific enough to the disposable-workroot pattern to remain distinct.",
+    "SK-002 (stamp-based idempotency) is a general pattern that may recur. Consider merging instances across repos into a single canonical entry with multiple evidence sources.",
+    "SK-005 (Python venv management) is common. The PowerShell-specific orchestration angle differentiates this instance.",
+    "SK-010 (DryRun patterns) is a common CLI design skill. If present in other repos, merge and cite multiple implementations.",
+    "SK-012 (git state capture) may appear in CI/CD-oriented repos. The manifest-embedding context distinguishes this instance.",
+    "SK-020 (documentation) is inherently repo-specific in evidence but the skill itself is cross-cutting. Consider a single canonical entry with evidence from multiple repos."
+  ],
+  "main_takeaway": "This repository demonstrates a cohesive set of automation and tooling design skills centered on reproducibility, traceability, and clean project hygiene. The strongest evidence is in structured provenance capture (run manifests with git state, host info, snapshots, and output), multi-stage bootstrap orchestration with idempotent initialization, and deliberate repo/workroot architectural separation. The implementation is Windows/PowerShell-specific, but the underlying patterns — stamp-based caching, lifecycle-stage separation, structured audit output, and defensive automation with DryRun support — are broadly transferable to any systems or infrastructure context. The 25 atomic skills extracted here represent concrete, evidence-backed capabilities suitable for career database entry, with clear boundaries on what is and is not claimed."
+}
